@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Achadinhos da Beka | Mimos e Ofertas</title>
+    <title>Achadinhos da Beka | Oficial</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, onValue, push, update, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -19,160 +19,165 @@
             projectId: "vitrine-shopee",
             storageBucket: "vitrine-shopee.firebasestorage.app",
             messagingSenderId: "561348400105",
-            appId: "1:561348400105:web:4f1713c2f46bbfff5ab178",
-            measurementId: "G-SHWL14TC6C"
+            appId: "1:561348400105:web:4f1713c2f46bbfff5ab178"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
+        const produtosRef = ref(db, 'produtos_beka'); // Separado na pasta dela
 
-        // --- CONTADOR DE VISITAS ---
-        const visitasRef = ref(db, 'stats_beka'); // Usando chave diferente para separar os projetos
-        update(visitasRef, { visitas: increment(1) });
-        onValue(ref(db, 'stats_beka/visitas'), (snap) => {
-            document.getElementById('count-num').innerText = snap.val() || 0;
-        });
+        // LOGIN DIRETO DA BEKA
+        window.fazerLogin = () => {
+            const senhaDigitada = document.getElementById('senhaAdmin').value.trim();
+            
+            // Senha definida: Bsn2803
+            if(senhaDigitada === "Bsn2803"){ 
+                sessionStorage.setItem('auth_beka','true'); 
+                mostrarCadastro(); 
+            } else { 
+                alert("Acesso Negado 🌸 Verifique a senha."); 
+            }
+        };
 
-        // --- CARREGAR PRODUTOS ---
-        const produtosRef = ref(db, 'produtos_beka'); // Usando chave diferente para separar os projetos
-        onValue(produtosRef, (snapshot) => {
-            const data = snapshot.val();
-            window.produtosBD = data ? Object.entries(data).map(([id, info]) => ({ id, ...info })) : [];
+        // BOT DE IMPORTAÇÃO CSV
+        window.importarCSV = function(event) {
+            const file = event.target.files[0];
+            const label = document.getElementById('labelCSV');
+            if (!file) return;
+            
+            label.innerText = "⏳ PROCESSANDO...";
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    let cont = 0;
+                    results.data.forEach(prod => {
+                        if(prod.nome && prod.preco) {
+                            push(produtosRef, {
+                                nome: prod.nome,
+                                preco: prod.preco,
+                                imagem: prod.imagem,
+                                link: prod.link || "#",
+                                categoria: prod.categoria || "Beleza"
+                            });
+                            cont++;
+                        }
+                    });
+                    alert(`Pronto! ${cont} mimos foram importados com sucesso! ✨`);
+                    label.innerText = "📁 IMPORTAR PLANILHA (CSV)";
+                }
+            });
+        };
+
+        // CONTADOR E CARREGAMENTO
+        update(ref(db, 'stats_beka'), { visitas: increment(1) });
+        onValue(ref(db, 'stats_beka/visitas'), (s) => document.getElementById('count-num').innerText = s.val() || 0);
+        
+        onValue(produtosRef, (s) => {
+            const data = s.val();
+            window.produtosBD = data ? Object.entries(data).map(([id, info]) => ({id, ...info})) : [];
             renderizar(window.produtosBD);
         });
 
-        // --- SALVAR NO FIREBASE ---
-        window.salvarNoFirebase = function () {
-            const btn = document.getElementById('btnSalvar');
-            const originalText = btn.innerText;
-
-            const novoProd = {
+        window.salvarNoFirebase = function() {
+            const dados = {
                 nome: document.getElementById('cadNome').value,
                 preco: document.getElementById('cadPreco').value,
                 imagem: document.getElementById('cadImg').value,
                 link: document.getElementById('cadLink').value,
                 categoria: document.getElementById('cadCat').value
             };
-
-            btn.disabled = true;
-            btn.innerText = "A GUARDAR...";
-
-            push(produtosRef, novoProd).then(() => {
-                btn.classList.replace('bg-pink-600', 'bg-purple-600');
-                btn.innerText = "✅ MIMOS SALVOS!";
-
+            push(produtosRef, dados).then(() => {
+                alert("Mimo salvo com sucesso! 💖");
                 document.getElementById('formCadastro').reset();
-                document.getElementById('cadNome').focus();
-
-                setTimeout(() => {
-                    btn.disabled = false;
-                    btn.classList.replace('bg-purple-600', 'bg-pink-600');
-                    btn.innerText = originalText;
-                }, 1500);
             });
         };
     </script>
 </head>
-
 <body class="bg-pink-50 pb-24 text-gray-800 font-sans">
 
-    <header class="bg-pink-500 text-white shadow-lg sticky top-0 z-50 border-b-4 border-pink-200">
-        <div class="max-w-6xl mx-auto p-4 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div class="text-center md:text-left">
-                <h1 class="text-3xl font-black italic tracking-tighter">✨ Achadinhos da Beka</h1>
-                <p class="text-[10px] uppercase font-bold tracking-widest opacity-90">
-                    💖 <span id="count-num">0</span> pessoas já visitaram
-                </p>
-            </div>
+    <header class="bg-pink-500 text-white shadow-xl sticky top-0 z-50 p-4 border-b-4 border-pink-200">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <h1 class="text-2xl font-black italic tracking-tighter">✨ Achadinhos da Beka</h1>
             <div class="relative w-full md:w-1/2">
-                <input type="text" id="inputBusca" onkeyup="filtrar()" placeholder="Procurar mimos..."
-                    class="w-full p-3 pl-10 rounded-2xl text-gray-800 outline-none border-none focus:ring-4 focus:ring-pink-200 shadow-inner">
-                <i class="fas fa-search absolute left-3 top-4 text-pink-400"></i>
+                <input type="text" id="inputBusca" onkeyup="filtrar()" placeholder="Procurar mimos..." 
+                       class="w-full p-3 pl-10 rounded-2xl text-gray-800 outline-none border-none shadow-inner focus:ring-4 focus:ring-pink-200 transition-all">
+                <i class="fas fa-search absolute left-4 top-4 text-pink-300"></i>
+            </div>
+            <div class="text-[10px] bg-pink-600 px-4 py-2 rounded-full font-bold uppercase tracking-widest shadow-md">
+                <i class="fas fa-heart mr-2"></i> <span id="count-num">0</span> visitas
             </div>
         </div>
     </header>
 
     <div class="max-w-6xl mx-auto px-4 mt-6 flex gap-2 overflow-x-auto no-scrollbar pb-2">
-        <button onclick="filtrarCategoria('Tudo')"
-            class="bg-pink-600 text-white px-6 py-2 rounded-full text-xs font-bold whitespace-nowrap shadow-md hover:bg-pink-700 transition">Tudo</button>
-        <button onclick="filtrarCategoria('Beleza')"
-            class="bg-white border-2 border-pink-100 px-6 py-2 rounded-full text-xs font-bold text-pink-600 whitespace-nowrap hover:bg-pink-50 transition">Beleza</button>
-        <button onclick="filtrarCategoria('Casa')"
-            class="bg-white border-2 border-pink-100 px-6 py-2 rounded-full text-xs font-bold text-pink-600 whitespace-nowrap hover:bg-pink-50 transition">Casa</button>
-        <button onclick="filtrarCategoria('Acessórios')"
-            class="bg-white border-2 border-pink-100 px-6 py-2 rounded-full text-xs font-bold text-pink-600 whitespace-nowrap hover:bg-pink-50 transition">Acessórios</button>
+        <button onclick="filtrarCategoria('Tudo')" class="cat-btn bg-pink-600 text-white px-8 py-2 rounded-full text-xs font-bold whitespace-nowrap shadow-md transition-all">Tudo</button>
+        <button onclick="filtrarCategoria('Beleza')" class="cat-btn bg-white border-2 border-pink-100 px-8 py-2 rounded-full text-xs font-bold text-pink-500 whitespace-nowrap hover:bg-pink-50 transition-all">Beleza</button>
+        <button onclick="filtrarCategoria('Casa')" class="cat-btn bg-white border-2 border-pink-100 px-8 py-2 rounded-full text-xs font-bold text-pink-500 whitespace-nowrap hover:bg-pink-50 transition-all">Casa</button>
+        <button onclick="filtrarCategoria('Acessórios')" class="cat-btn bg-white border-2 border-pink-100 px-8 py-2 rounded-full text-xs font-bold text-pink-500 whitespace-nowrap hover:bg-pink-50 transition-all">Acessórios</button>
     </div>
 
     <main class="max-w-6xl mx-auto p-4 grid grid-cols-2 md:grid-cols-4 gap-4" id="vitrine"></main>
 
-    <div id="modalAdmin"
-        class="fixed inset-0 bg-pink-900/80 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl">
+    <div id="modalAdmin" class="fixed inset-0 bg-pink-900/90 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl max-h-[90vh] overflow-y-auto border-t-8 border-pink-400 text-center">
+            
             <div id="areaLogin">
-                <h2 class="text-2xl font-bold mb-6 text-center text-pink-600">💖 Painel da Beka</h2>
-                <input type="password" id="senhaAdmin" autocomplete="off" placeholder="Senha de Acesso"
-                    class="w-full p-4 border-2 border-pink-50 rounded-2xl mb-4 text-lg text-center focus:border-pink-500 outline-none transition-all bg-pink-50/30">
-                <button onclick="fazerLogin()"
-                    class="w-full bg-pink-500 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-pink-600 transition-all active:scale-95 uppercase tracking-widest">Entrar</button>
-                <button onclick="fecharAdmin()" class="w-full mt-4 text-gray-400 text-sm">Fechar</button>
+                <h2 class="text-2xl font-bold mb-6 text-pink-600">💖 Painel da Beka</h2>
+                <input type="password" id="senhaAdmin" placeholder="Digite a Senha Mágica" class="w-full p-4 border-2 border-pink-50 rounded-2xl mb-4 text-center outline-none focus:border-pink-400 bg-pink-50/30">
+                <button onclick="fazerLogin()" class="w-full bg-pink-500 text-white py-4 rounded-2xl font-bold uppercase tracking-widest shadow-xl hover:bg-pink-600 transition active:scale-95">Entrar</button>
+                <button onclick="fecharAdmin()" class="w-full mt-4 text-gray-400 text-sm">Voltar</button>
             </div>
-            <div id="areaCadastro" class="hidden">
-                <form id="formCadastro" class="space-y-4" onsubmit="event.preventDefault(); salvarNoFirebase();">
-                    <div class="flex justify-between items-center border-b border-pink-100 pb-2 mb-2">
-                        <h2 class="text-xl font-bold text-pink-600 italic">Novo Achadinho</h2>
-                    </div>
-                    <input type="text" id="cadNome" placeholder="Nome do Produto" required
-                        class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-500">
-                    <input type="text" id="cadPreco" placeholder="Preço (ex: R$ 29,90)" required
-                        class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-500">
-                    <input type="text" id="cadImg" placeholder="Link da Imagem" required
-                        class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-500">
-                    <input type="text" id="cadLink" placeholder="Link Shopee" required
-                        class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-500">
-                    <select id="cadCat" class="w-full p-3 border rounded-xl bg-gray-50">
+
+            <div id="areaCadastro" class="hidden space-y-6 text-left">
+                <div class="bg-pink-50 p-6 rounded-[2rem] border-2 border-dashed border-pink-200">
+                    <label id="labelCSV" for="inputCSV" class="flex items-center justify-center bg-pink-500 text-white p-4 rounded-2xl font-bold cursor-pointer hover:bg-pink-600 transition shadow-lg text-xs uppercase tracking-widest">
+                        <i class="fas fa-file-csv mr-2 text-xl"></i> Importar Planilha CSV
+                    </label>
+                    <input type="file" id="inputCSV" accept=".csv" class="hidden" onchange="importarCSV(event)">
+                </div>
+
+                <div class="relative flex py-2 items-center">
+                    <div class="flex-grow border-t border-pink-100"></div>
+                    <span class="flex-shrink mx-4 text-pink-300 text-[10px] font-bold uppercase">Ou Manual</span>
+                    <div class="flex-grow border-t border-pink-100"></div>
+                </div>
+
+                <form id="formCadastro" onsubmit="event.preventDefault(); salvarNoFirebase();" class="space-y-3">
+                    <input type="text" id="cadNome" placeholder="Nome do Produto" required class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-300">
+                    <input type="text" id="cadPreco" placeholder="Preço (ex: R$ 29,90)" required class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-300">
+                    <input type="text" id="cadImg" placeholder="Link da Imagem" required class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-300">
+                    <input type="text" id="cadLink" placeholder="Link Shopee" required class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-300">
+                    <select id="cadCat" class="w-full p-3 border rounded-xl bg-gray-50 outline-none focus:ring-2 focus:ring-pink-300">
                         <option value="Beleza">Beleza</option>
                         <option value="Casa">Casa</option>
                         <option value="Acessórios">Acessórios</option>
-                        <option value="Outros">Outros</option>
                     </select>
-                    <button type="submit" id="btnSalvar"
-                        class="w-full bg-pink-600 text-white py-4 rounded-2xl font-bold shadow-xl hover:bg-pink-700 transition-all uppercase tracking-widest">Publicar
-                        Agora</button>
+                    <button type="submit" class="w-full bg-pink-600 text-white py-4 rounded-2xl font-bold shadow-xl uppercase tracking-widest hover:bg-pink-700 transition">Publicar Achadinho</button>
                 </form>
-                <button onclick="logoutAdmin()"
-                    class="w-full mt-6 text-gray-300 text-[10px] font-bold uppercase tracking-widest">Sair do
-                    Painel</button>
+                <button onclick="logoutAdmin()" class="w-full text-pink-300 text-[10px] font-bold uppercase mt-4 tracking-widest">Sair do Painel</button>
             </div>
         </div>
     </div>
 
-    <button onclick="abrirAdmin()"
-        class="fixed bottom-6 left-6 bg-pink-200 text-pink-600 p-4 rounded-full shadow-lg hover:bg-pink-300 transition-all">
-        <i class="fas fa-magic"></i>
-    </button>
-
-    <a href="https://wa.me/SEU_NUMERO_AQUI" target="_blank"
-        class="fixed bottom-6 right-6 bg-green-400 text-white p-4 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-all border-4 border-white">
-        <i class="fab fa-whatsapp text-3xl"></i>
-    </a>
+    <button onclick="abrirAdmin()" class="fixed bottom-6 left-6 bg-pink-200 text-pink-600 p-4 rounded-full shadow-lg hover:bg-pink-300 transition hover:scale-110 active:scale-90"><i class="fas fa-magic"></i></button>
+    <a href="https://wa.me/SEUNUMERO_AQUI" target="_blank" class="fixed bottom-6 right-6 bg-green-400 text-white p-4 rounded-full shadow-2xl hover:scale-110 transition border-4 border-white active:scale-90"><i class="fab fa-whatsapp text-3xl"></i></a>
 
     <script>
-        const SENHA_MESTRA = "Bsn2803.";
-
         function renderizar(lista) {
             const v = document.getElementById('vitrine');
-            v.innerHTML = lista.length ? "" : "<div class='col-span-full text-center py-20 text-pink-300'><i class='fas fa-heart text-4xl mb-2'></i><p>A Beka está preparando mimos novos...</p></div>";
+            v.innerHTML = lista.length ? "" : "<div class='col-span-full text-center py-20 text-pink-300'><i class='fas fa-heart text-4xl mb-2'></i><p>A Beka está a preparar mimos novos...</p></div>";
             lista.forEach(p => {
                 v.innerHTML += `
-                    <div class="bg-white rounded-[2rem] shadow-sm border border-pink-50 p-3 flex flex-col hover:shadow-xl transition-all duration-300 relative group overflow-hidden">
-                        <div class="relative overflow-hidden rounded-[1.5rem]">
-                            <img src="${p.imagem}" class="w-full h-44 object-cover group-hover:scale-110 transition-transform duration-500" onerror="this.src='https://via.placeholder.com/400?text=Produto'">
+                    <div class="bg-white rounded-[2rem] shadow-sm border border-pink-50 p-3 flex flex-col group overflow-hidden">
+                        <div class="overflow-hidden rounded-[1.5rem] relative">
+                            <img src="${p.imagem}" class="w-full h-44 object-cover group-hover:scale-110 transition duration-500" onerror="this.src='https://via.placeholder.com/400'">
                         </div>
                         <h3 class="mt-3 text-sm font-bold text-gray-700 h-10 line-clamp-2 leading-tight px-1">${p.nome}</h3>
-                        <div class="mt-auto pt-3 px-1">
-                            <p class="text-[9px] text-pink-300 font-bold uppercase tracking-widest mb-1">${p.categoria}</p>
+                        <div class="mt-auto pt-3 border-t border-pink-50 mt-3 px-1 text-center">
+                            <p class="text-[9px] text-pink-300 font-bold uppercase mb-1 tracking-widest">${p.categoria}</p>
                             <p class="text-xl font-black text-pink-600">${p.preco}</p>
-                            <a href="${p.link}" target="_blank" class="mt-3 block bg-pink-500 text-white text-center py-3 rounded-2xl font-bold uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-md shadow-pink-100 hover:bg-pink-600">Eu Quero 💖</a>
+                            <a href="${p.link}" target="_blank" class="mt-3 block bg-pink-500 text-white py-3 rounded-2xl font-bold uppercase text-[10px] tracking-widest shadow-md hover:bg-pink-600 transition">Eu Quero 💖</a>
                         </div>
                     </div>`;
             });
@@ -183,38 +188,21 @@
             renderizar(window.produtosBD.filter(p => p.nome.toLowerCase().includes(t)));
         }
 
-        function filtrarCategoria(c) {
-            if (c === 'Tudo') renderizar(window.produtosBD);
-            else renderizar(window.produtosBD.filter(p => p.categoria === c));
-        }
-
-        window.abrirAdmin = () => {
-            document.getElementById('modalAdmin').classList.remove('hidden');
-            if (sessionStorage.getItem('adminBekaLogado') === 'true') mostrarCadastro();
+        window.filtrarCategoria = (cat) => {
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.replace('bg-pink-600', 'bg-white');
+                btn.classList.replace('text-white', 'text-pink-500');
+            });
+            event.target.classList.replace('bg-white', 'bg-pink-600');
+            event.target.classList.replace('text-pink-500', 'text-white');
+            if (cat === 'Tudo') renderizar(window.produtosBD);
+            else renderizar(window.produtosBD.filter(p => p.categoria === cat));
         };
 
+        window.abrirAdmin = () => { document.getElementById('modalAdmin').classList.remove('hidden'); if(sessionStorage.getItem('auth_beka')) mostrarCadastro(); };
         window.fecharAdmin = () => document.getElementById('modalAdmin').classList.add('hidden');
-
-        window.fazerLogin = () => {
-            if (document.getElementById('senhaAdmin').value === SENHA_MESTRA) {
-                sessionStorage.setItem('adminBekaLogado', 'true');
-                mostrarCadastro();
-            } else { alert("Acesso Negado 🌸"); }
-        };
-
-        function mostrarCadastro() {
-            document.getElementById('areaLogin').classList.add('hidden');
-            document.getElementById('areaCadastro').classList.remove('hidden');
-            document.getElementById('cadNome').focus();
-        }
-
-        window.logoutAdmin = () => {
-            sessionStorage.removeItem('adminBekaLogado');
-            document.getElementById('areaCadastro').classList.add('hidden');
-            document.getElementById('areaLogin').classList.remove('hidden');
-            fecharAdmin();
-        };
+        function mostrarCadastro() { document.getElementById('areaLogin').classList.add('hidden'); document.getElementById('areaCadastro').classList.remove('hidden'); document.getElementById('cadNome').focus(); }
+        window.logoutAdmin = () => { sessionStorage.removeItem('auth_beka'); location.reload(); };
     </script>
 </body>
-
 </html>
